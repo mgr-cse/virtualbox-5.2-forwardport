@@ -1,0 +1,419 @@
+Binary files VirtualBox-5.2.44/src/VBox/Additions/common/crOpenGL/entrypoints.pyc and VirtualBox-5.2.44-mod/src/VBox/Additions/common/crOpenGL/entrypoints.pyc differ
+diff -ruN VirtualBox-5.2.44/src/VBox/Additions/linux/drm/vbox_drv.c VirtualBox-5.2.44-mod/src/VBox/Additions/linux/drm/vbox_drv.c
+--- VirtualBox-5.2.44/src/VBox/Additions/linux/drm/vbox_drv.c	2020-07-09 22:20:12.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Additions/linux/drm/vbox_drv.c	2023-01-09 21:15:47.319513853 +0530
+@@ -320,7 +320,9 @@
+ #endif
+ 
+ 	.fops = &vbox_fops,
++	#if #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+ 	.irq_handler = vbox_irq_handler,
++	#endif
+ 	.name = DRIVER_NAME,
+ 	.desc = DRIVER_DESC,
+ 	.date = DRIVER_DATE,
+diff -ruN VirtualBox-5.2.44/src/VBox/Additions/linux/drm/vbox_drv.h VirtualBox-5.2.44-mod/src/VBox/Additions/linux/drm/vbox_drv.h
+--- VirtualBox-5.2.44/src/VBox/Additions/linux/drm/vbox_drv.h	2020-07-09 22:20:12.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Additions/linux/drm/vbox_drv.h	2023-01-09 21:14:07.894956293 +0530
+@@ -114,7 +114,9 @@
+ #include <drm/drm_device.h>
+ #include <drm/drm_ioctl.h>
+ #include <drm/drm_fourcc.h>
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+ #include <drm/drm_irq.h>
++#endif
+ #include <drm/drm_vblank.h>
+ #include <drm/drm_pci.h>
+ #endif /* >= KERNEL_VERSION(5, 5, 0) */
+@@ -443,7 +445,10 @@
+ int vbox_irq_init(struct vbox_private *vbox);
+ void vbox_irq_fini(struct vbox_private *vbox);
+ void vbox_report_hotplug(struct vbox_private *vbox);
++#if #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+ irqreturn_t vbox_irq_handler(int irq, void *arg);
++#endif
++
+ 
+ /* vbox_hgsmi.c */
+ void *hgsmi_buffer_alloc(struct gen_pool *guest_pool, size_t size,
+diff -ruN VirtualBox-5.2.44/src/VBox/Additions/linux/sharedfolders/dirops.c VirtualBox-5.2.44-mod/src/VBox/Additions/linux/sharedfolders/dirops.c
+--- VirtualBox-5.2.44/src/VBox/Additions/linux/sharedfolders/dirops.c	2020-07-09 22:20:12.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Additions/linux/sharedfolders/dirops.c	2023-01-09 20:27:00.142426373 +0530
+@@ -631,7 +631,7 @@
+  * @returns 0 on success, Linux error code otherwise
+  */
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0) || defined(DOXYGEN_RUNNING)
+-static int sf_create(struct inode *parent, struct dentry *dentry, umode_t mode, bool excl)
++static int sf_create(struct user_namespace *init_user_ns ,struct inode *parent, struct dentry *dentry, umode_t mode, bool excl)
+ #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
+ static int sf_create(struct inode *parent, struct dentry *dentry, umode_t mode, struct nameidata *nd)
+ #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+@@ -653,7 +653,7 @@
+  * @returns 0 on success, Linux error code otherwise
+  */
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
+-static int sf_mkdir(struct inode *parent, struct dentry *dentry, umode_t mode)
++static int sf_mkdir(struct user_namespace *init_user_ns ,struct inode *parent, struct dentry *dentry, umode_t mode)
+ #else
+ static int sf_mkdir(struct inode *parent, struct dentry *dentry, int mode)
+ #endif
+@@ -747,7 +747,7 @@
+  * @param flags         flags
+  * @returns 0 on success, Linux error code otherwise
+  */
+-static int sf_rename(struct inode *old_parent, struct dentry *old_dentry,
++static int sf_rename(struct user_namespace *init_user_ns,struct inode *old_parent, struct dentry *old_dentry,
+                      struct inode *new_parent, struct dentry *new_dentry
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+                      , unsigned flags
+@@ -817,7 +817,7 @@
+ }
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+-static int sf_symlink(struct inode *parent, struct dentry *dentry, const char *symname)
++static int sf_symlink(struct user_namespace *init_user_ns,struct inode *parent, struct dentry *dentry, const char *symname)
+ {
+     int err;
+     int rc;
+diff -ruN VirtualBox-5.2.44/src/VBox/Additions/linux/sharedfolders/utils.c VirtualBox-5.2.44-mod/src/VBox/Additions/linux/sharedfolders/utils.c
+--- VirtualBox-5.2.44/src/VBox/Additions/linux/sharedfolders/utils.c	2020-07-09 22:20:12.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Additions/linux/sharedfolders/utils.c	2023-01-09 20:44:48.117230119 +0530
+@@ -296,7 +296,7 @@
+    [generic_fillattr] */
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+ # if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+-int sf_getattr(const struct path *path, struct kstat *kstat, u32 request_mask, unsigned int flags)
++int sf_getattr(struct user_namespace *init_user_ns, const struct path *path, struct kstat *kstat, u32 request_mask, unsigned int flags)
+ # else
+ int sf_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *kstat)
+ # endif
+@@ -311,11 +311,11 @@
+     if (err)
+         return err;
+ 
+-    generic_fillattr(dentry->d_inode, kstat);
++    generic_fillattr(init_user_ns, dentry->d_inode, kstat);
+     return 0;
+ }
+ 
+-int sf_setattr(struct dentry *dentry, struct iattr *iattr)
++int sf_setattr(struct user_namespace *init_user_ns ,struct dentry *dentry, struct iattr *iattr)
+ {
+     struct sf_glob_info *sf_g;
+     struct sf_inode_info *sf_i;
+diff -ruN VirtualBox-5.2.44/src/VBox/Additions/linux/sharedfolders/vfsmod.h VirtualBox-5.2.44-mod/src/VBox/Additions/linux/sharedfolders/vfsmod.h
+--- VirtualBox-5.2.44/src/VBox/Additions/linux/sharedfolders/vfsmod.h	2020-07-09 22:20:13.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Additions/linux/sharedfolders/vfsmod.h	2023-01-09 20:44:57.761581727 +0530
+@@ -101,13 +101,13 @@
+ extern int  sf_inode_revalidate(struct dentry *dentry);
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+ # if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+-extern int  sf_getattr(const struct path *path, struct kstat *kstat,
++extern int  sf_getattr(struct user_namespace * init_user_ns, const struct path *path, struct kstat *kstat,
+                        u32 request_mask, unsigned int query_flags);
+ # else
+ extern int  sf_getattr(struct vfsmount *mnt, struct dentry *dentry,
+                        struct kstat *kstat);
+ #endif
+-extern int  sf_setattr(struct dentry *dentry, struct iattr *iattr);
++extern int  sf_setattr(struct user_namespace *init_user_ns ,struct dentry *dentry, struct iattr *iattr);
+ #endif
+ extern int  sf_path_from_dentry(const char *caller, struct sf_glob_info *sf_g,
+                                 struct sf_inode_info *sf_i, struct dentry *dentry,
+Binary files VirtualBox-5.2.44/src/VBox/GuestHost/OpenGL/glapi_parser/apiutil.pyc and VirtualBox-5.2.44-mod/src/VBox/GuestHost/OpenGL/glapi_parser/apiutil.pyc differ
+Binary files VirtualBox-5.2.44/src/VBox/GuestHost/OpenGL/packer/pack_currenttypes.pyc and VirtualBox-5.2.44-mod/src/VBox/GuestHost/OpenGL/packer/pack_currenttypes.pyc differ
+Binary files VirtualBox-5.2.44/src/VBox/GuestHost/OpenGL/state_tracker/convert.pyc and VirtualBox-5.2.44-mod/src/VBox/GuestHost/OpenGL/state_tracker/convert.pyc differ
+Binary files VirtualBox-5.2.44/src/VBox/GuestHost/OpenGL/state_tracker/get_components.pyc and VirtualBox-5.2.44-mod/src/VBox/GuestHost/OpenGL/state_tracker/get_components.pyc differ
+diff -ruN VirtualBox-5.2.44/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c VirtualBox-5.2.44-mod/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c
+--- VirtualBox-5.2.44/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c	2020-07-09 22:27:00.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c	2023-01-09 16:39:15.676397288 +0530
+@@ -755,20 +755,20 @@
+ 
+ RTCCUINTREG VBOXCALL supdrvOSChangeCR4(RTCCUINTREG fOrMask, RTCCUINTREG fAndMask)
+ {
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 20, 0)
+-    RTCCUINTREG uOld = this_cpu_read(cpu_tlbstate.cr4);
+-    RTCCUINTREG uNew = (uOld & fAndMask) | fOrMask;
+-    if (uNew != uOld)
+-    {
+-        this_cpu_write(cpu_tlbstate.cr4, uNew);
+-        __write_cr4(uNew);
+-    }
+-#else
++//#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 20, 0) && LINUX_VERSION_CODE <= KERNEL_VERSION(5, 7, 0)
++//    RTCCUINTREG uOld = this_cpu_read(cpu_tlbstate.cr4);
++//    RTCCUINTREG uNew = (uOld & fAndMask) | fOrMask;
++//    if (uNew != uOld)
++//    {
++//        this_cpu_write(cpu_tlbstate.cr4, uNew);
++//        __write_cr4(uNew);
++//    }
++//#else
+     RTCCUINTREG uOld = ASMGetCR4();
+     RTCCUINTREG uNew = (uOld & fAndMask) | fOrMask;
+     if (uNew != uOld)
+         ASMSetCR4(uNew);
+-#endif
++//#endif
+     return uOld;
+ }
+ 
+diff -ruN VirtualBox-5.2.44/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c VirtualBox-5.2.44-mod/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c
+--- VirtualBox-5.2.44/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c	2020-07-09 22:27:02.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c	2023-01-09 21:46:33.684246832 +0530
+@@ -1768,7 +1768,7 @@
+  */
+ static bool vboxNetFltNeedsLinkState(PVBOXNETFLTINS pThis, struct net_device *pDev)
+ {
+-    if (pDev->ethtool_ops && pDev->ethtool_ops->get_drvinfo)
++    /*if (pDev->ethtool_ops && pDev->ethtool_ops->get_drvinfo)
+     {
+         struct ethtool_drvinfo Info;
+ 
+@@ -1784,11 +1784,11 @@
+         if (!strncmp(Info.driver, "vboxnet", sizeof(Info.driver)))
+             return true;
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36) /* TAP started doing carrier */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36) // TAP started doing carrier
+         return !strncmp(Info.driver,   "tun", 4)
+             && !strncmp(Info.bus_info, "tap", 4);
+ #endif
+-    }
++    }*/
+ 
+     return false;
+ }
+Binary files VirtualBox-5.2.44/src/VBox/HostServices/SharedOpenGL/crserverlib/get_sizes.pyc and VirtualBox-5.2.44-mod/src/VBox/HostServices/SharedOpenGL/crserverlib/get_sizes.pyc differ
+diff -ruN VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/alloc-r0drv-linux.c VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/alloc-r0drv-linux.c
+--- VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/alloc-r0drv-linux.c	2020-07-09 22:27:39.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/alloc-r0drv-linux.c	2023-01-09 15:36:49.180357076 +0530
+@@ -38,7 +38,7 @@
+ 
+ 
+ #if (defined(RT_ARCH_AMD64) || defined(DOXYGEN_RUNNING)) && !defined(RTMEMALLOC_EXEC_HEAP)
+-# if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 23)
++# if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 23) && LINUX_VERSION_CODE <= KERNEL_VERSION(5,8,0)
+ /**
+  * Starting with 2.6.23 we can use __get_vm_area and map_vm_area to allocate
+  * memory in the moduel range.  This is preferrable to the exec heap below.
+diff -ruN VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c
+--- VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c	2020-07-09 22:27:39.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c	2023-01-09 16:14:51.883633040 +0530
+@@ -591,7 +591,7 @@
+                 size_t              iPage;
+                 Assert(pTask);
+                 if (pTask && pTask->mm)
+-                    down_read(&pTask->mm->mmap_sem);
++                    mmap_read_lock(pTask->mm);
+ 
+                 iPage = pMemLnx->cPages;
+                 while (iPage-- > 0)
+@@ -606,7 +606,7 @@
+                 }
+ 
+                 if (pTask && pTask->mm)
+-                    up_read(&pTask->mm->mmap_sem);
++                    mmap_read_unlock(pTask->mm);
+             }
+             /* else: kernel memory - nothing to do here. */
+             break;
+@@ -1073,7 +1073,7 @@
+     papVMAs = (struct vm_area_struct **)RTMemAlloc(sizeof(*papVMAs) * cPages);
+     if (papVMAs)
+     {
+-        down_read(&pTask->mm->mmap_sem);
++        mmap_read_lock(pTask->mm);
+ 
+         /*
+          * Get user pages.
+@@ -1098,7 +1098,7 @@
+          */
+         else
+             rc = get_user_pages_remote(
+-                                pTask,                  /* Task for fault accounting. */
++                                //pTask,                  /* Task for fault accounting. */
+                                 pTask->mm,              /* Whose pages. */
+                                 R3Ptr,                  /* Where from. */
+                                 cPages,                 /* How many pages. */
+@@ -1158,7 +1158,7 @@
+                 papVMAs[rc]->vm_flags |= (VM_DONTCOPY | VM_LOCKED);
+             }
+ 
+-            up_read(&pTask->mm->mmap_sem);
++            mmap_read_unlock(pTask->mm);
+ 
+             RTMemFree(papVMAs);
+ 
+@@ -1185,7 +1185,7 @@
+ #endif
+         }
+ 
+-        up_read(&pTask->mm->mmap_sem);
++        mmap_read_unlock(pTask->mm);
+ 
+         RTMemFree(papVMAs);
+         rc = VERR_LOCK_FAILED;
+@@ -1595,7 +1595,7 @@
+             const size_t    cPages = pMemLnxToMap->Core.cb >> PAGE_SHIFT;
+             size_t          iPage;
+ 
+-            down_write(&pTask->mm->mmap_sem);
++            mmap_write_lock(pTask->mm);
+ 
+             rc = VINF_SUCCESS;
+             if (pMemLnxToMap->cPages)
+@@ -1712,7 +1712,7 @@
+             }
+ #endif /* CONFIG_NUMA_BALANCING */
+ 
+-            up_write(&pTask->mm->mmap_sem);
++            mmap_write_unlock(pTask->mm);
+ 
+             if (RT_SUCCESS(rc))
+             {
+diff -ruN VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/mp-r0drv-linux.c VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/mp-r0drv-linux.c
+--- VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/mp-r0drv-linux.c	2020-07-09 22:27:39.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/mp-r0drv-linux.c	2023-01-09 16:28:21.948545868 +0530
+@@ -89,18 +89,19 @@
+ 
+ RTDECL(bool) RTMpIsCpuPossible(RTCPUID idCpu)
+ {
+-#if defined(CONFIG_SMP)
+-    if (RT_UNLIKELY(idCpu >= VBOX_NR_CPUMASK_BITS))
+-        return false;
+-
+-# if defined(cpu_possible)
+-    return cpu_possible(idCpu);
+-# else /* < 2.5.29 */
+-    return idCpu < (RTCPUID)smp_num_cpus;
+-# endif
+-#else
++
++//#if defined(CONFIG_SMP)
++//    if (RT_UNLIKELY(idCpu >= VBOX_NR_CPUMASK_BITS))
++//        return false;
++//
++//# if defined(cpu_possible)
++//    return cpu_possible(idCpu);
++//# else /* < 2.5.29 */
++//    return idCpu < (RTCPUID)smp_num_cpus;
++//# endif
++//#else
+     return idCpu == RTMpCpuId();
+-#endif
++//#endif
+ }
+ RT_EXPORT_SYMBOL(RTMpIsCpuPossible);
+ 
+@@ -123,38 +124,38 @@
+ 
+ RTDECL(RTCPUID) RTMpGetCount(void)
+ {
+-#ifdef CONFIG_SMP
+-# if defined(CONFIG_HOTPLUG_CPU) /* introduced & uses cpu_present */
+-    return num_present_cpus();
+-# elif defined(num_possible_cpus)
+-    return num_possible_cpus();
+-# elif LINUX_VERSION_CODE < KERNEL_VERSION(2, 5, 0)
+-    return smp_num_cpus;
+-# else
+-    RTCPUSET Set;
+-    RTMpGetSet(&Set);
+-    return RTCpuSetCount(&Set);
+-# endif
+-#else
++//#ifdef CONFIG_SMP
++//# if defined(CONFIG_HOTPLUG_CPU) /* introduced & uses cpu_present */
++//    return num_present_cpus();
++//# elif defined(num_possible_cpus)
++//    return num_possible_cpus();
++//# elif LINUX_VERSION_CODE < KERNEL_VERSION(2, 5, 0)
++//    return smp_num_cpus;
++//# else
++//    RTCPUSET Set;
++//    RTMpGetSet(&Set);
++//    return RTCpuSetCount(&Set);
++//# endif
++//#else
+     return 1;
+-#endif
++//#endif
+ }
+ RT_EXPORT_SYMBOL(RTMpGetCount);
+ 
+ 
+ RTDECL(bool) RTMpIsCpuOnline(RTCPUID idCpu)
+ {
+-#ifdef CONFIG_SMP
+-    if (RT_UNLIKELY(idCpu >= VBOX_NR_CPUMASK_BITS))
+-        return false;
+-# ifdef cpu_online
+-    return cpu_online(idCpu);
+-# else /* 2.4: */
+-    return cpu_online_map & RT_BIT_64(idCpu);
+-# endif
+-#else
++//#ifdef CONFIG_SMP
++//    if (RT_UNLIKELY(idCpu >= VBOX_NR_CPUMASK_BITS))
++//        return false;
++//# ifdef cpu_online
++//    return cpu_online(idCpu);
++//# else /* 2.4: */
++//    return cpu_online_map & RT_BIT_64(idCpu);
++//# endif
++//#else
+     return idCpu == RTMpCpuId();
+-#endif
++//#endif
+ }
+ RT_EXPORT_SYMBOL(RTMpIsCpuOnline);
+ 
+diff -ruN VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h
+--- VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h	2020-07-09 22:27:39.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h	2023-01-09 15:13:24.216822191 +0530
+@@ -128,6 +128,10 @@
+ #include <linux/interrupt.h>
+ #include <linux/completion.h>
+ #include <linux/compiler.h>
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
++#define HAVE_UNLOCKED_IOCTL 1
++#endif
+ #ifndef HAVE_UNLOCKED_IOCTL /* linux/fs.h defines this */
+ # include <linux/smp_lock.h>
+ #endif
+diff -ruN VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/thread2-r0drv-linux.c VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/thread2-r0drv-linux.c
+--- VirtualBox-5.2.44/src/VBox/Runtime/r0drv/linux/thread2-r0drv-linux.c	2020-07-09 22:27:39.000000000 +0530
++++ VirtualBox-5.2.44-mod/src/VBox/Runtime/r0drv/linux/thread2-r0drv-linux.c	2023-01-09 17:06:36.247087990 +0530
+@@ -78,13 +78,15 @@
+             break;
+ 
+         case RTTHREADTYPE_IO:
+-            iSchedClass = SCHED_FIFO;
+-            Param.sched_priority = MAX_RT_PRIO - 1;
++            //iSchedClass = SCHED_FIFO;
++            //Param.sched_priority = MAX_RT_PRIO - 1;
++            sched_set_fifo(current);
+             break;
+ 
+         case RTTHREADTYPE_TIMER:
+-            iSchedClass = SCHED_FIFO;
+-            Param.sched_priority = 1; /* not 0 just in case */
++            //iSchedClass = SCHED_FIFO;
++            //Param.sched_priority = 1; /* not 0 just in case */
++            sched_set_fifo_low(current);
+             break;
+ 
+         default:
+@@ -92,7 +94,9 @@
+             return VERR_INVALID_PARAMETER;
+     }
+ 
+-    sched_setscheduler(current, iSchedClass, &Param);
++    //sched_setscheduler(current, iSchedClass, &Param);
++    RT_NOREF_PV(iSchedClass);
++    RT_NOREF_PV(Param);
+ #else
+     RT_NOREF_PV(enmType);
+ #endif
